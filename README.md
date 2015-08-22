@@ -1,3 +1,11 @@
+# Notes related to this fork
+
+I only added simple dirty patch that allows you upload image from base64 encoded string.
+Useful for example when you create or manipulate image using html5 canvas or javascript and then using ajax technique for upload
+
+Usage is simple, *uploader.store!(my_file)* now accept base64 encoded string as parameter
+
+
 # CarrierWave
 
 This gem provides a simple and extremely flexible way to upload files from Ruby applications.

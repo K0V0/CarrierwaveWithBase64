@@ -53,16 +53,36 @@ module CarrierWave
       # [new_file (File, IOString, Tempfile)] any kind of file object
       #
       def store!(new_file=nil)
+      	if new_file.is_a?(String)
+      		store!(decode_base64_image(new_file))
+      		return
+      	end
         cache!(new_file) if new_file && ((@cache_id != parent_cache_id) || @cache_id.nil?)
-        if !cache_only and @file and @cache_id
+        if @file and @cache_id
           with_callbacks(:store, new_file) do
             new_file = storage.store!(@file)
-            if delete_tmp_file_after_storage
-              @file.delete unless move_to_store
-              cache_storage.delete_dir!(cache_path(nil))
-            end
+            @file.delete if (delete_tmp_file_after_storage && ! move_to_store)
+            delete_cache_id
             @file = new_file
             @cache_id = nil
+          end
+        end
+      end
+
+      ##
+      # Deletes a cache id (tmp dir in cache)
+      #
+      def delete_cache_id
+        if @cache_id
+          path = File.expand_path(File.join(cache_dir, @cache_id), CarrierWave.root)
+          begin
+            Dir.rmdir(path)
+          rescue Errno::ENOENT
+            # Ignore: path does not exist
+          rescue Errno::ENOTDIR
+            # Ignore: path is not a dir
+          rescue Errno::ENOTEMPTY, Errno::EEXIST
+            # Ignore: dir is not empty
           end
         end
       end
@@ -89,6 +109,26 @@ module CarrierWave
       def storage
         @storage ||= self.class.storage.new(self)
       end
+
+     def split_base_64(uri)
+	    if uri.match(%r{^data:(.*?);(.*?),(.*)$})
+	      return {
+	        type:      $1, # "image/png"
+	        encoder:   $2, # "base64"
+	        data:      $3, # data string
+	        extension: $1.split('/')[1] # "png"
+	        }
+	    end
+	end
+
+	def decode_base64_image(encoded_file)
+		splitted_base64_url = split_base_64(encoded_file)
+  		decoded_file = Base64.decode64(splitted_base64_url[:data])
+  		file = Tempfile.new([ 'image', '.'+splitted_base64_url[:extension] ]) 
+  		file.binmode
+  		file.write decoded_file
+ 		return file
+	end
 
     end # Store
   end # Uploader
